@@ -14,6 +14,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -25,12 +26,24 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Tile;
+import com.google.android.gms.maps.model.TileOverlay;
+import com.google.android.gms.maps.model.TileOverlayOptions;
+import com.google.android.gms.maps.model.TileProvider;
+
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.platform.PlatformView;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -222,6 +235,19 @@ final class GoogleMapController
           result.success(null);
           break;
         }
+      case "layers#token": {
+        tokenProvider.token = call.argument("token");
+        Log.e("LAYERS","token injected"+tokenProvider.token);
+        result.success(null);
+        break;
+      }
+      case "layers#state": {
+        final Map<String,Boolean> state = call.arguments();
+        Log.e("LAYERS","state="+state.keySet());
+        changeLayerOverlaysState(state);
+        result.success(null);
+        break;
+      }
       default:
         result.notImplemented();
     }
@@ -392,5 +418,156 @@ final class GoogleMapController
   @Override
   public void setZoomGesturesEnabled(boolean zoomGesturesEnabled) {
     googleMap.getUiSettings().setZoomGesturesEnabled(zoomGesturesEnabled);
+  }
+
+  private TokenProvider tokenProvider = new TokenProvider();
+  private Map<String, TileOverlay> layers = new HashMap<>();
+
+  private void changeLayerOverlaysState(Map<String, Boolean> layerStates) {
+    Iterator<String> keys = layerStates.keySet().iterator();
+    while (keys.hasNext()) {
+      String key = keys.next();
+      Boolean isOn = layerStates.get(key);
+      TileOverlay tileOverlay = layers.get(key);
+      if (tileOverlay == null) {
+        WmsTileProvider tileProvider = new WmsTileProvider(new UrlProvider(key, tokenProvider));
+        tileOverlay = googleMap.addTileOverlay(new TileOverlayOptions().tileProvider(tileProvider));
+        layers.put(key, tileOverlay);
+      }
+      tileOverlay.setVisible(isOn);
+    }
+  }
+}
+
+class TokenProvider {
+  String token;
+}
+
+
+class UrlProvider {
+  private static String backendUrl = "http://gds.geo4.pro/geoportal/service/wms";
+  private String queryTemplate =
+          backendUrl +
+                  "?service=WMS" +
+                  "&version=1.1.1" +
+                  "&request=GetMap" +
+                  "&srs=EPSG:900913" +
+                  "&styles=" +
+                  "&transparent=true" +
+                  "&format=image/png" +
+                  "&width=%d" +
+                  "&height=%d" +
+                  "&layers=%s" +
+                  "&bbox=%f,%f,%f,%f" +
+                  "&token=%s";
+
+
+  private String layerName;
+
+  private TokenProvider tokenProvider;
+
+  UrlProvider(String layerName, TokenProvider tokenProvider) {
+    this.layerName = layerName;
+    this.tokenProvider = tokenProvider;
+  }
+
+  public String getUrl(int x, int y, int zoom, int imageSize) {
+    double[] bbox = getBoundingBox(x, y, zoom);
+    return String.format(Locale.US, queryTemplate,
+            imageSize,
+            imageSize,
+            layerName,
+            bbox[MIN_X], bbox[MIN_Y], bbox[MAX_X], bbox[MAX_Y],
+            tokenProvider.token);
+  }
+
+  // Web Mercator n/w corner of the map.
+  private static final double[] TILE_ORIGIN = {-20037508.34789244, 20037508.34789244};
+  //array indexes for that data
+  private static final int ORIG_X = 0;
+  private static final int ORIG_Y = 1;
+
+  // Size of square world map in meters, using WebMerc projection.
+  private static final double MAP_SIZE = 20037508.34789244 * 2;
+
+  // array indexes for array to hold bounding boxes.
+  private static final int MIN_X = 0;
+  private static final int MAX_X = 1;
+  private static final int MIN_Y = 2;
+  private static final int MAX_Y = 3;
+
+  private double[] getBoundingBox(int x, int y, int zoom) {
+    double tileSize = MAP_SIZE / Math.pow(2, zoom);
+    double minx = TILE_ORIGIN[ORIG_X] + x * tileSize;
+    double maxx = TILE_ORIGIN[ORIG_X] + (x + 1) * tileSize;
+    double miny = TILE_ORIGIN[ORIG_Y] - (y + 1) * tileSize;
+    double maxy = TILE_ORIGIN[ORIG_Y] - y * tileSize;
+
+    double[] bbox = new double[4];
+    bbox[MIN_X] = minx;
+    bbox[MIN_Y] = miny;
+    bbox[MAX_X] = maxx;
+    bbox[MAX_Y] = maxy;
+
+    return bbox;
+  }
+}
+
+
+class WmsTileProvider implements TileProvider {
+
+  private static final int MAX_SUPPORTED_ZOOM = 18;
+  private static final int MIN_SUPPORTED_ZOOM = 1;
+  private static final int TILE_SIZE = 512;
+
+
+  private UrlProvider urlProvider;
+
+  WmsTileProvider(UrlProvider urlProvider) {
+    this.urlProvider = urlProvider;
+  }
+
+  /*
+   * Check that the tile server supports the requested x, y and zoom.
+   * Complete this stub according to the tile range you support.
+   * If you support a limited range of tiles at different zoom levels, then you
+   * need to define the supported x, y range at each zoom level.
+   */
+  private boolean checkTileExists(int zoom) {
+    return (zoom >= MIN_SUPPORTED_ZOOM && zoom <= MAX_SUPPORTED_ZOOM);
+  }
+
+
+  private URL getUrl(int x, int y, int zoom) {
+    if (!checkTileExists(zoom)) {
+      return null;
+    }
+    try {
+      return new URL(urlProvider.getUrl(x, y, zoom, TILE_SIZE));
+    } catch (MalformedURLException e) {
+      Log.e("TileProvider", e.toString());
+      throw new AssertionError(e);
+    }
+  }
+
+  @Override
+  public Tile getTile(int x, int y, int z) {
+    URL url = getUrl(x, y, z);
+    if (url == null) return NO_TILE;
+    try {
+      InputStream input = url.openStream();
+      ByteArrayOutputStream imgStream = new ByteArrayOutputStream();
+
+      byte[] buf = new byte[4096];
+
+      int readed;
+      while ((readed = input.read(buf)) != -1) {
+        imgStream.write(buf, 0, readed);
+      }
+      return new Tile(TILE_SIZE, TILE_SIZE, imgStream.toByteArray());
+    } catch (Exception e) {
+      Log.e("TileProvider", "error occurred when get tile image:\n" + e.toString() + "for url: " + url.toString());
+    }
+    return NO_TILE;
   }
 }

@@ -205,4 +205,14 @@ class GoogleMapController extends ChangeNotifier {
     _markers.remove(marker._id);
     notifyListeners();
   }
+
+  Future<void> injectToken(String token) async {
+    await _channel.invokeMethod('layers#token', <String, dynamic>{
+      'token': token,
+    });
+  }
+
+  Future<void> newLayersState(Map<String, bool> map) async {
+    await _channel.invokeMethod('layers#state', map);
+  }
 }
