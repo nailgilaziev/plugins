@@ -206,6 +206,12 @@ class GoogleMapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> injectBackendWmsUrl(String url) async {
+    await _channel.invokeMethod('layers#token', <String, dynamic>{
+      'url': url,
+    });
+  }
+
   Future<void> injectToken(String token) async {
     await _channel.invokeMethod('layers#token', <String, dynamic>{
       'token': token,

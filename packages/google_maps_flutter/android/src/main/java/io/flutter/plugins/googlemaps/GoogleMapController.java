@@ -235,6 +235,12 @@ final class GoogleMapController
           result.success(null);
           break;
         }
+      case "layers#url": {
+        tokenProvider.backendWmsUrl = call.argument("url");
+        Log.e("LAYERS","backend wms url injected"+tokenProvider.backendWmsUrl);
+        result.success(null);
+        break;
+      }
       case "layers#token": {
         tokenProvider.token = call.argument("token");
         Log.e("LAYERS","token injected"+tokenProvider.token);
@@ -440,14 +446,13 @@ final class GoogleMapController
 }
 
 class TokenProvider {
+  String backendWmsUrl;
   String token;
 }
 
 
 class UrlProvider {
-  private static String backendUrl = "http://gds.geo4.pro/geoportal/service/wms";
   private String queryTemplate =
-          backendUrl +
                   "?service=WMS" +
                   "&version=1.1.1" +
                   "&request=GetMap" +
@@ -473,7 +478,8 @@ class UrlProvider {
 
   public String getUrl(int x, int y, int zoom, int imageSize) {
     double[] bbox = getBoundingBox(x, y, zoom);
-    return String.format(Locale.US, queryTemplate,
+    return tokenProvider.backendWmsUrl +
+            String.format(Locale.US, queryTemplate,
             imageSize,
             imageSize,
             layerName,
