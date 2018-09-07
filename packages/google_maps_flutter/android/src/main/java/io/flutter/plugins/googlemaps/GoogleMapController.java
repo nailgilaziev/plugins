@@ -237,13 +237,13 @@ final class GoogleMapController
         }
       case "layers#url": {
         tokenProvider.backendWmsUrl = call.argument("url");
-        Log.e("LAYERS","backend wms url injected"+tokenProvider.backendWmsUrl);
+        Log.e("LAYERS","backend wms url injected "+tokenProvider.backendWmsUrl);
         result.success(null);
         break;
       }
       case "layers#token": {
         tokenProvider.token = call.argument("token");
-        Log.e("LAYERS","token injected"+tokenProvider.token);
+        Log.e("LAYERS","token injected "+tokenProvider.token);
         result.success(null);
         break;
       }
