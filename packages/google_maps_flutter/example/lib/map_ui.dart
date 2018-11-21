@@ -182,13 +182,27 @@ class MapUiBodyState extends State<MapUiBody> {
     );
   }
 
+  Widget _myLocationToggler() {
+    return FlatButton(
+      child: Text(
+          '${_options.myLocationEnabled ? 'disable' : 'enable'} my location'),
+      onPressed: () {
+        mapController.updateMapOptions(
+          GoogleMapOptions(
+            myLocationEnabled: !_options.myLocationEnabled,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<Widget> columnChildren = <Widget>[
       Padding(
         padding: const EdgeInsets.all(10.0),
         child: Center(
-          child: new SizedBox(
+          child: SizedBox(
             width: 300.0,
             height: 200.0,
             child: GoogleMap(
@@ -208,7 +222,7 @@ class MapUiBodyState extends State<MapUiBody> {
 
     if (mapController != null) {
       columnChildren.add(
-        new Expanded(
+        Expanded(
           child: ListView(
             children: <Widget>[
               Text('camera bearing: ${_position.bearing}'),
@@ -226,6 +240,7 @@ class MapUiBodyState extends State<MapUiBody> {
               _scrollToggler(),
               _tiltToggler(),
               _zoomToggler(),
+              _myLocationToggler(),
             ],
           ),
         ),
