@@ -275,6 +275,7 @@ final class GoogleMapController
       }
       case "map#clear": {
         Log.e("MAP","Clear");
+        layers.clear();
         googleMap.clear();
         result.success(null);
         break;
