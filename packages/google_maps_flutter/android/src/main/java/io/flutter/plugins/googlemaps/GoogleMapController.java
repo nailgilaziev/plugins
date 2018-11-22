@@ -267,6 +267,18 @@ final class GoogleMapController
         result.success(null);
         break;
       }
+      case "layers#invalidate": {
+        Log.e("LAYERS","Invalidate");
+        invalidateTilesCache();
+        result.success(null);
+        break;
+      }
+      case "map#clear": {
+        Log.e("MAP","Clear");
+        googleMap.clear();
+        result.success(null);
+        break;
+      }
       default:
         result.notImplemented();
     }
@@ -490,6 +502,12 @@ final class GoogleMapController
         layers.put(key, tileOverlay);
       }
       tileOverlay.setVisible(isOn);
+    }
+  }
+
+  private void invalidateTilesCache(){
+    for (TileOverlay tileOverlay: layers.values()) {
+      tileOverlay.clearTileCache();
     }
   }
 }

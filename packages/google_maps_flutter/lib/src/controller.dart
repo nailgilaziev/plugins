@@ -244,4 +244,12 @@ class GoogleMapController extends ChangeNotifier {
   Future<void> newLayersState(Map<String, bool> map) async {
     await _channel.invokeMethod('layers#state', map);
   }
+
+  Future<void> invalidateLayersState() async {
+    await _channel.invokeMethod('layers#invalidate', <String, dynamic>{});
+  }
+
+  Future<void> clear() async {
+    await _channel.invokeMethod('map#clear', <String, dynamic>{});
+  }
 }
